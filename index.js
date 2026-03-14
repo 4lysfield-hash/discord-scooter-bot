@@ -1,6 +1,17 @@
 const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
 
+const http = require("http");
+
+const PORT = process.env.PORT || 3000;
+
+http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("Bot online");
+}).listen(PORT, () => {
+  console.log(`Servidor HTTP ouvindo na porta ${PORT}`);
+});
+
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const ROBLOX_OPEN_CLOUD_API_KEY = process.env.ROBLOX_OPEN_CLOUD_API_KEY;
 const ROBLOX_UNIVERSE_ID = process.env.ROBLOX_UNIVERSE_ID;
@@ -78,7 +89,7 @@ function memberHasPermission(member) {
   return member.roles.cache.some(role => ALLOWED_ROLE_IDS.includes(role.id));
 }
 
-client.once("ready", () => {
+client.once("clientReady", () => {
   console.log(`Bot online como ${client.user.tag}`);
 });
 
