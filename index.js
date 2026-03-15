@@ -1,6 +1,5 @@
 const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
-
 const http = require("http");
 
 const PORT = process.env.PORT || 3000;
@@ -21,12 +20,6 @@ const ALLOWED_ROLE_IDS = (process.env.ALLOWED_ROLE_IDS || "")
   .filter(Boolean);
 
 const PREFIX = ":";
-const DATASTORE_NAME = "PermanentScooter";
-const DATASTORE_SCOPE = "global";
-
-if (!DISCORD_BOT_TOKEN) throw new Error("Falta DISCORD_BOT_TOKEN");
-if (!ROBLOX_OPEN_CLOUD_API_KEY) throw new Error("Falta ROBLOX_OPEN_CLOUD_API_KEY");
-if (!ROBLOX_UNIVERSE_ID) throw new Error("Falta ROBLOX_UNIVERSE_ID");
 
 const client = new Client({
   intents: [
@@ -35,6 +28,11 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
+
+function memberHasPermission(member) {
+  if (!ALLOWED_ROLE_IDS.length) return true;
+  return member.roles.cache.some(role => ALLOWED_ROLE_IDS.includes(role.id));
+}
 
 async function getRobloxUserIdFromUsername(username) {
   const response = await axios.post(
@@ -61,40 +59,27 @@ async function getRobloxUserIdFromUsername(username) {
   };
 }
 
-console.log({
-  universeId: ROBLOX_UNIVERSE_ID,
-  datastoreName: "PermanentScooter",
-  entryKey: `scooter_${userId}`
-});
-
-const crypto = require("crypto");
-
 async function grantScooter(userId, grantedByDiscordId) {
   const url = `https://apis.roblox.com/datastores/v1/universes/${ROBLOX_UNIVERSE_ID}/standard-datastores/datastore/entries/entry`;
 
-  const body = JSON.stringify({
+  const body = {
     hasScooter: true,
     grantedByDiscord: true,
-    grantedByDiscordId: grantedByDiscordId,
+    grantedByDiscordId,
     grantedAt: new Date().toISOString()
-  });
+  };
 
-  const contentMd5 = crypto.createHash("md5").update(body).digest("base64");
-
-  const response = await axios.post(url, body, {
+  await axios.post(url, JSON.stringify(body), {
+    headers: {
+      "x-api-key": ROBLOX_OPEN_CLOUD_API_KEY,
+      "Content-Type": "application/json"
+    },
     params: {
       datastoreName: "PermanentScooter",
       scope: "global",
       entryKey: `scooter_${userId}`
-    },
-    headers: {
-      "x-api-key": ROBLOX_OPEN_CLOUD_API_KEY,
-      "content-type": "application/json",
-      "content-md5": contentMd5
     }
   });
-
-  return response.data;
 }
 
 async function getExistingCharacterGrants(userId) {
@@ -155,11 +140,6 @@ async function grantCharacter(userId, characterName, grantedByDiscordId) {
   });
 }
 
-function memberHasPermission(member) {
-  if (!ALLOWED_ROLE_IDS.length) return true;
-  return member.roles.cache.some(role => ALLOWED_ROLE_IDS.includes(role.id));
-}
-
 client.once("clientReady", () => {
   console.log(`Bot online como ${client.user.tag}`);
 });
@@ -191,8 +171,6 @@ client.on("messageCreate", async (message) => {
       }
 
       const { userId, username } = await getRobloxUserIdFromUsername(robloxUsername);
-      console.log("Scooter para:", username, userId);
-
       await grantScooter(userId, message.author.id);
 
       await message.reply(
@@ -205,18 +183,13 @@ client.on("messageCreate", async (message) => {
       const robloxUsername = args[0];
       const characterName = args[1];
 
-      console.log("givecharacter chamado com:", robloxUsername, characterName);
-
       if (!robloxUsername || !characterName) {
         await message.reply("Use assim: `:givecharacter nomedoplayerdoroblox nomedopersonagem`");
         return;
       }
 
       const { userId, username } = await getRobloxUserIdFromUsername(robloxUsername);
-      console.log("Jogador encontrado:", username, userId);
-
       await grantCharacter(userId, characterName, message.author.id);
-      console.log("grantCharacter executado com sucesso");
 
       await message.reply(
         `Personagem **${characterName}** concedido para **${username}** (UserId: ${userId}). Ele vai receber ao entrar no jogo.`
