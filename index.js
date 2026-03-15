@@ -166,12 +166,16 @@ client.once("clientReady", () => {
 
 client.on("messageCreate", async (message) => {
   try {
+    console.log("Mensagem recebida:", message.content);
+
     if (message.author.bot) return;
     if (!message.guild) return;
     if (!message.content.startsWith(PREFIX)) return;
 
     const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
     const command = (args.shift() || "").toLowerCase();
+
+    console.log("Comando detectado:", command, "Args:", args);
 
     if (!memberHasPermission(message.member)) {
       await message.reply("Você não tem permissão para usar esse comando.");
@@ -187,6 +191,8 @@ client.on("messageCreate", async (message) => {
       }
 
       const { userId, username } = await getRobloxUserIdFromUsername(robloxUsername);
+      console.log("Scooter para:", username, userId);
+
       await grantScooter(userId, message.author.id);
 
       await message.reply(
@@ -199,19 +205,26 @@ client.on("messageCreate", async (message) => {
       const robloxUsername = args[0];
       const characterName = args[1];
 
+      console.log("givecharacter chamado com:", robloxUsername, characterName);
+
       if (!robloxUsername || !characterName) {
         await message.reply("Use assim: `:givecharacter nomedoplayerdoroblox nomedopersonagem`");
         return;
       }
 
       const { userId, username } = await getRobloxUserIdFromUsername(robloxUsername);
+      console.log("Jogador encontrado:", username, userId);
+
       await grantCharacter(userId, characterName, message.author.id);
+      console.log("grantCharacter executado com sucesso");
 
       await message.reply(
         `Personagem **${characterName}** concedido para **${username}** (UserId: ${userId}). Ele vai receber ao entrar no jogo.`
       );
       return;
     }
+
+    console.log("Comando não reconhecido:", command);
   } catch (error) {
     console.error("Erro no comando:", error?.response?.data || error);
 
