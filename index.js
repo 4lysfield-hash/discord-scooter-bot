@@ -97,6 +97,64 @@ async function grantScooter(userId, grantedByDiscordId) {
   return response.data;
 }
 
+async function getExistingCharacterGrants(userId) {
+  const url = `https://apis.roblox.com/datastores/v1/universes/${ROBLOX_UNIVERSE_ID}/standard-datastores/datastore/entries/entry`;
+
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        "x-api-key": ROBLOX_OPEN_CLOUD_API_KEY
+      },
+      params: {
+        datastoreName: "DiscordCharacterGrants",
+        scope: "global",
+        entryKey: `chars_${userId}`
+      }
+    });
+
+    return response.data || null;
+  } catch (error) {
+    if (error.response && error.response.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function grantCharacter(userId, characterName, grantedByDiscordId) {
+  const url = `https://apis.roblox.com/datastores/v1/universes/${ROBLOX_UNIVERSE_ID}/standard-datastores/datastore/entries/entry`;
+
+  const existing = await getExistingCharacterGrants(userId);
+
+  let grants = [];
+  if (existing && Array.isArray(existing.characters)) {
+    grants = existing.characters;
+  }
+
+  if (!grants.includes(characterName)) {
+    grants.push(characterName);
+  }
+
+  const body = {
+    characters: grants,
+    grantedByDiscord: true,
+    grantedByDiscordId,
+    grantedAt: new Date().toISOString()
+  };
+
+  await axios.post(url, JSON.stringify(body), {
+    headers: {
+      "x-api-key": ROBLOX_OPEN_CLOUD_API_KEY,
+      "Content-Type": "application/json"
+    },
+    params: {
+      datastoreName: "DiscordCharacterGrants",
+      scope: "global",
+      entryKey: `chars_${userId}`
+    }
+  });
+}
+
 function memberHasPermission(member) {
   if (!ALLOWED_ROLE_IDS.length) return true;
   return member.roles.cache.some(role => ALLOWED_ROLE_IDS.includes(role.id));
@@ -115,34 +173,55 @@ client.on("messageCreate", async (message) => {
     const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
     const command = (args.shift() || "").toLowerCase();
 
-    if (command !== "scooter") return;
-
     if (!memberHasPermission(message.member)) {
       await message.reply("Você não tem permissão para usar esse comando.");
       return;
     }
 
-    const robloxUsername = args[0];
-    if (!robloxUsername) {
-      await message.reply("Use assim: `:scooter nomedoroblox`");
+    if (command === "scooter") {
+      const robloxUsername = args[0];
+
+      if (!robloxUsername) {
+        await message.reply("Use assim: `:scooter nomedoroblox`");
+        return;
+      }
+
+      const { userId, username } = await getRobloxUserIdFromUsername(robloxUsername);
+      await grantScooter(userId, message.author.id);
+
+      await message.reply(
+        `Scooter concedida com sucesso para **${username}** (UserId: ${userId}). Ele vai receber \`HasScooter = true\` ao entrar no jogo.`
+      );
       return;
     }
 
-    const { userId, username } = await getRobloxUserIdFromUsername(robloxUsername);
-    await grantScooter(userId, message.author.id);
+    if (command === "givecharacter") {
+      const robloxUsername = args[0];
+      const characterName = args[1];
 
-    await message.reply(
-      `Scooter concedida com sucesso para **${username}** (UserId: ${userId}). Ele vai receber \`HasScooter = true\` ao entrar no jogo.`
-    );
+      if (!robloxUsername || !characterName) {
+        await message.reply("Use assim: `:givecharacter nomedoplayerdoroblox nomedopersonagem`");
+        return;
+      }
+
+      const { userId, username } = await getRobloxUserIdFromUsername(robloxUsername);
+      await grantCharacter(userId, characterName, message.author.id);
+
+      await message.reply(
+        `Personagem **${characterName}** concedido para **${username}** (UserId: ${userId}). Ele vai receber ao entrar no jogo.`
+      );
+      return;
+    }
   } catch (error) {
-    console.error(error?.response?.data || error);
+    console.error("Erro no comando:", error?.response?.data || error);
 
     const robloxError =
       error?.response?.data?.errors?.[0]?.message ||
+      error?.response?.data?.message ||
       error?.message ||
       "Erro desconhecido";
 
-    await message.reply(`Não consegui dar a scooter. Erro: ${robloxError}`);
+    await message.reply(`Não consegui completar o comando. Erro: ${robloxError}`);
   }
 });
 
