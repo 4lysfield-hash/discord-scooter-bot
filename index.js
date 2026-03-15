@@ -45,6 +45,16 @@ const VALID_CHARACTERS = [
   "RavenBombshell",
 ];
 
+const VALID_TITLES = [
+  "iconic",
+  "gnarly",
+  "feathers",
+  "fangs",
+  "bombshell",
+  "queenofdead",
+  "prestigious"
+];
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -235,6 +245,73 @@ async function removeCharacterGrant(userId, characterName, grantedByDiscordId) {
   });
 }
 
+function findMatchingTitles(query) {
+  const q = normalizeText(query);
+  if (!q) return [];
+
+  return VALID_TITLES.filter(name =>
+    name.toLowerCase().includes(q)
+  );
+}
+
+async function getExistingTitleGrants(userId) {
+  const url = `https://apis.roblox.com/datastores/v1/universes/${ROBLOX_UNIVERSE_ID}/standard-datastores/datastore/entries/entry`;
+
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        "x-api-key": ROBLOX_OPEN_CLOUD_API_KEY
+      },
+      params: {
+        datastoreName: "DiscordTitleGrants",
+        scope: "global",
+        entryKey: `titles_${userId}`
+      }
+    });
+
+    return response.data || null;
+  } catch (error) {
+    if (error.response && error.response.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function grantTitle(userId, titleName, grantedByDiscordId) {
+  const url = `https://apis.roblox.com/datastores/v1/universes/${ROBLOX_UNIVERSE_ID}/standard-datastores/datastore/entries/entry`;
+
+  const existing = await getExistingTitleGrants(userId);
+
+  let grants = [];
+  if (existing && Array.isArray(existing.titles)) {
+    grants = existing.titles;
+  }
+
+  if (!grants.includes(titleName)) {
+    grants.push(titleName);
+  }
+
+  const body = {
+    titles: grants,
+    grantedByDiscord: true,
+    grantedByDiscordId,
+    grantedAt: new Date().toISOString()
+  };
+
+  await axios.post(url, JSON.stringify(body), {
+    headers: {
+      "x-api-key": ROBLOX_OPEN_CLOUD_API_KEY,
+      "Content-Type": "application/json"
+    },
+    params: {
+      datastoreName: "DiscordTitleGrants",
+      scope: "global",
+      entryKey: `titles_${userId}`
+    }
+  });
+}
+
 client.once("clientReady", () => {
   console.log(`Bot online como ${client.user.tag}`);
 });
@@ -257,6 +334,34 @@ client.on("messageCreate", async (message) => {
       await message.reply("Pong! Bot online.");
       return;
     }
+
+if (command === "givetitle") {
+  const robloxUsername = args[0];
+  const titleName = normalizeText(args[1]);
+
+  if (!robloxUsername || !titleName) {
+    await message.reply("Use assim: `:givetitle nomedouser nomedotitulo`");
+    return;
+  }
+
+  if (!VALID_TITLES.includes(titleName)) {
+    const suggestions = findMatchingTitles(titleName);
+    const suggestionText = suggestions.length
+      ? `\nTítulos válidos parecidos:\n${suggestions.map(name => `- ${name}`).join("\n")}`
+      : `\nTítulos válidos:\n${VALID_TITLES.map(name => `- ${name}`).join("\n")}`;
+
+    await message.reply(`Título inválido: \`${titleName}\`${suggestionText}`);
+    return;
+  }
+
+  const { userId, username } = await getRobloxUserIdFromUsername(robloxUsername);
+  await grantTitle(userId, titleName, message.author.id);
+
+  await message.reply(
+    `Título **${titleName}** concedido para **${username}** (UserId: ${userId}). Ele será aplicado quando o player entrar no jogo.`
+  );
+  return;
+}
 
     if (command === "character") {
       const query = args.join(" ");
