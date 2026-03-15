@@ -61,27 +61,40 @@ async function getRobloxUserIdFromUsername(username) {
   };
 }
 
+console.log({
+  universeId: ROBLOX_UNIVERSE_ID,
+  datastoreName: "PermanentScooter",
+  entryKey: `scooter_${userId}`
+});
+
+const crypto = require("crypto");
+
 async function grantScooter(userId, grantedByDiscordId) {
   const url = `https://apis.roblox.com/datastores/v1/universes/${ROBLOX_UNIVERSE_ID}/standard-datastores/datastore/entries/entry`;
 
-  const body = {
+  const body = JSON.stringify({
     hasScooter: true,
     grantedByDiscord: true,
     grantedByDiscordId: grantedByDiscordId,
     grantedAt: new Date().toISOString()
-  };
+  });
 
-  await axios.post(url, JSON.stringify(body), {
+  const contentMd5 = crypto.createHash("md5").update(body).digest("base64");
+
+  const response = await axios.post(url, body, {
+    params: {
+      datastoreName: "PermanentScooter",
+      scope: "global",
+      entryKey: `scooter_${userId}`
+    },
     headers: {
       "x-api-key": ROBLOX_OPEN_CLOUD_API_KEY,
-      "Content-Type": "application/json"
-    },
-    params: {
-      datastoreName: DATASTORE_NAME,
-      scope: DATASTORE_SCOPE,
-      entryKey: `scooter_${userId}`
+      "content-type": "application/json",
+      "content-md5": contentMd5
     }
   });
+
+  return response.data;
 }
 
 function memberHasPermission(member) {
