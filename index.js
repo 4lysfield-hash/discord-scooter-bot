@@ -153,7 +153,7 @@ async function getExistingCharacterGrants(userId) {
   }
 }
 
-async function grantCharacter(userId, characterName, grantedByDiscordId) {
+async function grantCharacter(userId, characterNames, grantedByDiscordId) {
   const url = `https://apis.roblox.com/datastores/v1/universes/${ROBLOX_UNIVERSE_ID}/standard-datastores/datastore/entries/entry`;
 
   const existing = await getExistingCharacterGrants(userId);
@@ -163,8 +163,10 @@ async function grantCharacter(userId, characterName, grantedByDiscordId) {
     grants = existing.characters;
   }
 
-  if (!grants.includes(characterName)) {
-    grants.push(characterName);
+  for (const characterName of characterNames) {
+    if (!grants.includes(characterName)) {
+      grants.push(characterName);
+    }
   }
 
   const body = {
@@ -402,33 +404,56 @@ if (command === "givetitle") {
       return;
     }
 
-    if (command === "givecharacter") {
-      const robloxUsername = args[0];
-      const characterName = args[1];
+   if (command === "givecharacter") {
+  const robloxUsername = args[0];
+  const rawCharacters = args.slice(1).join(" ");
 
-      if (!robloxUsername || !characterName) {
-        await message.reply("Use assim: `:givecharacter nomedoplayerdoroblox nomedopersonagem`");
-        return;
+  if (!robloxUsername || !rawCharacters) {
+    await message.reply(
+      "Use assim: `:givecharacter nomedoplayerdoroblox personagem1,personagem2,personagem3`"
+    );
+    return;
+  }
+
+  const characterNames = rawCharacters
+    .split(",")
+    .map(name => name.trim())
+    .filter(Boolean);
+
+  if (!characterNames.length) {
+    await message.reply(
+      "Você precisa informar pelo menos um personagem."
+    );
+    return;
+  }
+
+  const invalidCharacters = characterNames.filter(
+    name => !VALID_CHARACTERS.includes(name)
+  );
+
+  if (invalidCharacters.length > 0) {
+    let errorMessage = "Estes personagens são inválidos:\n";
+    for (const invalid of invalidCharacters) {
+      const suggestions = findMatchingCharacters(invalid);
+      errorMessage += `\n- \`${invalid}\``;
+
+      if (suggestions.length) {
+        errorMessage += `\n  Talvez você quis dizer:\n${suggestions.map(name => `  • ${name}`).join("\n")}`;
       }
-
-      if (!VALID_CHARACTERS.includes(characterName)) {
-        const suggestions = findMatchingCharacters(characterName);
-        const suggestionText = suggestions.length
-          ? `\nTalvez você quis dizer:\n${suggestions.map(name => `- ${name}`).join("\n")}`
-          : "";
-
-        await message.reply(`Personagem inválido: \`${characterName}\`${suggestionText}`);
-        return;
-      }
-
-      const { userId, username } = await getRobloxUserIdFromUsername(robloxUsername);
-      await grantCharacter(userId, characterName, message.author.id);
-
-      await message.reply(
-        `Personagem **${characterName}** concedido para **${username}** (UserId: ${userId}). Ele vai receber ao entrar no jogo.`
-      );
-      return;
     }
+
+    await message.reply(errorMessage);
+    return;
+  }
+
+  const { userId, username } = await getRobloxUserIdFromUsername(robloxUsername);
+  await grantCharacter(userId, characterNames, message.author.id);
+
+  await message.reply(
+    `Personagens concedidos para **${username}** (UserId: ${userId}):\n${characterNames.map(name => `- ${name}`).join("\n")}\n\nEles serão aplicados quando o player entrar no jogo.`
+  );
+  return;
+}
 
     if (command === "removecharacter") {
       const robloxUsername = args[0];
