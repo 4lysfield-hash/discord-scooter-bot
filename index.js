@@ -327,6 +327,20 @@ client.on("messageCreate", async (message) => {
     const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
     const command = (args.shift() || "").toLowerCase();
 
+    const validCommands = [
+      "ping",
+      "character",
+      "scooter",
+      "givecharacter",
+      "removecharacter",
+      "givetitle"
+    ];
+
+    // Se não for um comando real, ignora totalmente
+    if (!validCommands.includes(command)) {
+      return;
+    }
+
     if (!memberHasPermission(message.member)) {
       await message.reply("Você não tem permissão para usar esse comando.");
       return;
@@ -336,34 +350,6 @@ client.on("messageCreate", async (message) => {
       await message.reply("Pong! Bot online.");
       return;
     }
-
-if (command === "givetitle") {
-  const robloxUsername = args[0];
-  const titleName = normalizeText(args[1]);
-
-  if (!robloxUsername || !titleName) {
-    await message.reply("Use assim: `:givetitle nomedouser nomedotitulo`");
-    return;
-  }
-
-  if (!VALID_TITLES.includes(titleName)) {
-    const suggestions = findMatchingTitles(titleName);
-    const suggestionText = suggestions.length
-      ? `\nTítulos válidos parecidos:\n${suggestions.map(name => `- ${name}`).join("\n")}`
-      : `\nTítulos válidos:\n${VALID_TITLES.map(name => `- ${name}`).join("\n")}`;
-
-    await message.reply(`Título inválido: \`${titleName}\`${suggestionText}`);
-    return;
-  }
-
-  const { userId, username } = await getRobloxUserIdFromUsername(robloxUsername);
-  await grantTitle(userId, titleName, message.author.id);
-
-  await message.reply(
-    `Título **${titleName}** concedido para **${username}** (UserId: ${userId}). Ele será aplicado quando o player entrar no jogo.`
-  );
-  return;
-}
 
     if (command === "character") {
       const query = args.join(" ");
@@ -404,56 +390,55 @@ if (command === "givetitle") {
       return;
     }
 
-   if (command === "givecharacter") {
-  const robloxUsername = args[0];
-  const rawCharacters = args.slice(1).join(" ");
+    if (command === "givecharacter") {
+      const robloxUsername = args[0];
+      const rawCharacters = args.slice(1).join(" ");
 
-  if (!robloxUsername || !rawCharacters) {
-    await message.reply(
-      "Use assim: `:givecharacter nomedoplayerdoroblox personagem1,personagem2,personagem3`"
-    );
-    return;
-  }
-
-  const characterNames = rawCharacters
-    .split(",")
-    .map(name => name.trim())
-    .filter(Boolean);
-
-  if (!characterNames.length) {
-    await message.reply(
-      "Você precisa informar pelo menos um personagem."
-    );
-    return;
-  }
-
-  const invalidCharacters = characterNames.filter(
-    name => !VALID_CHARACTERS.includes(name)
-  );
-
-  if (invalidCharacters.length > 0) {
-    let errorMessage = "Estes personagens são inválidos:\n";
-    for (const invalid of invalidCharacters) {
-      const suggestions = findMatchingCharacters(invalid);
-      errorMessage += `\n- \`${invalid}\``;
-
-      if (suggestions.length) {
-        errorMessage += `\n  Talvez você quis dizer:\n${suggestions.map(name => `  • ${name}`).join("\n")}`;
+      if (!robloxUsername || !rawCharacters) {
+        await message.reply(
+          "Use assim: `:givecharacter nomedoplayerdoroblox personagem1,personagem2,personagem3`"
+        );
+        return;
       }
+
+      const characterNames = rawCharacters
+        .split(",")
+        .map(name => name.trim())
+        .filter(Boolean);
+
+      if (!characterNames.length) {
+        await message.reply("Você precisa informar pelo menos um personagem.");
+        return;
+      }
+
+      const invalidCharacters = characterNames.filter(
+        name => !VALID_CHARACTERS.includes(name)
+      );
+
+      if (invalidCharacters.length > 0) {
+        let errorMessage = "Estes personagens são inválidos:\n";
+
+        for (const invalid of invalidCharacters) {
+          const suggestions = findMatchingCharacters(invalid);
+          errorMessage += `\n- \`${invalid}\``;
+
+          if (suggestions.length) {
+            errorMessage += `\n  Talvez você quis dizer:\n${suggestions.map(name => `  • ${name}`).join("\n")}`;
+          }
+        }
+
+        await message.reply(errorMessage);
+        return;
+      }
+
+      const { userId, username } = await getRobloxUserIdFromUsername(robloxUsername);
+      await grantCharacter(userId, characterNames, message.author.id);
+
+      await message.reply(
+        `Personagens concedidos para **${username}** (UserId: ${userId}):\n${characterNames.map(name => `- ${name}`).join("\n")}\n\nEles serão aplicados quando o player entrar no jogo.`
+      );
+      return;
     }
-
-    await message.reply(errorMessage);
-    return;
-  }
-
-  const { userId, username } = await getRobloxUserIdFromUsername(robloxUsername);
-  await grantCharacter(userId, characterNames, message.author.id);
-
-  await message.reply(
-    `Personagens concedidos para **${username}** (UserId: ${userId}):\n${characterNames.map(name => `- ${name}`).join("\n")}\n\nEles serão aplicados quando o player entrar no jogo.`
-  );
-  return;
-}
 
     if (command === "removecharacter") {
       const robloxUsername = args[0];
@@ -479,6 +464,34 @@ if (command === "givetitle") {
 
       await message.reply(
         `Remoção do personagem **${characterName}** marcada para **${username}** (UserId: ${userId}). Ela será aplicada quando o player entrar no jogo.`
+      );
+      return;
+    }
+
+    if (command === "givetitle") {
+      const robloxUsername = args[0];
+      const titleName = normalizeText(args[1]);
+
+      if (!robloxUsername || !titleName) {
+        await message.reply("Use assim: `:givetitle nomedouser nomedotitulo`");
+        return;
+      }
+
+      if (!VALID_TITLES.includes(titleName)) {
+        const suggestions = findMatchingTitles(titleName);
+        const suggestionText = suggestions.length
+          ? `\nTítulos válidos parecidos:\n${suggestions.map(name => `- ${name}`).join("\n")}`
+          : `\nTítulos válidos:\n${VALID_TITLES.map(name => `- ${name}`).join("\n")}`;
+
+        await message.reply(`Título inválido: \`${titleName}\`${suggestionText}`);
+        return;
+      }
+
+      const { userId, username } = await getRobloxUserIdFromUsername(robloxUsername);
+      await grantTitle(userId, titleName, message.author.id);
+
+      await message.reply(
+        `Título **${titleName}** concedido para **${username}** (UserId: ${userId}). Ele será aplicado quando o player entrar no jogo.`
       );
       return;
     }
