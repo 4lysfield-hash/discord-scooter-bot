@@ -116,12 +116,6 @@ async function grantScooter(userId, grantedByDiscordId) {
     grantedAt: new Date().toISOString()
   };
 
-console.log("grantScooter", {
-  universeId: ROBLOX_UNIVERSE_ID,
-  datastoreName: "PermanentScooter",
-  entryKey: `scooter_${userId}`
-});
-
   await axios.post(url, JSON.stringify(body), {
     headers: {
       "x-api-key": ROBLOX_OPEN_CLOUD_API_KEY,
@@ -168,13 +162,6 @@ async function grantCharacter(userId, characterNames, grantedByDiscordId) {
   if (existing && Array.isArray(existing.characters)) {
     grants = existing.characters;
   }
-
-console.log("grantCharacter", {
-  universeId: ROBLOX_UNIVERSE_ID,
-  datastoreName: "DiscordCharacterGrants",
-  entryKey: `chars_${userId}`,
-  characterName
-});
 
   for (const characterName of characterNames) {
     if (!grants.includes(characterName)) {
@@ -235,13 +222,6 @@ async function removeCharacterGrant(userId, characterName, grantedByDiscordId) {
   if (existing && Array.isArray(existing.characters)) {
     removals = existing.characters;
   }
-
-console.log("removeCharacterGrant", {
-  universeId: ROBLOX_UNIVERSE_ID,
-  datastoreName: "DiscordCharacterRemovals",
-  entryKey: `removechars_${userId}`,
-  characterName
-});
 
   if (!removals.includes(characterName)) {
     removals.push(characterName);
@@ -309,13 +289,6 @@ async function grantTitle(userId, titleName, grantedByDiscordId) {
   if (existing && Array.isArray(existing.titles)) {
     grants = existing.titles;
   }
-
-console.log("grantTitle", {
-  universeId: ROBLOX_UNIVERSE_ID,
-  datastoreName: "DiscordTitleGrants",
-  entryKey: `titles_${userId}`,
-  titleName
-});
 
   if (!grants.includes(titleName)) {
     grants.push(titleName);
@@ -524,9 +497,6 @@ client.on("messageCreate", async (message) => {
     }
   } catch (error) {
     console.error("Erro no comando:", error?.response?.data || error);
-
-console.error("Erro completo Roblox:", JSON.stringify(error?.response?.data, null, 2));
-console.error("Mensagem:", error?.message);
 
     const robloxError =
       error?.response?.data?.errors?.[0]?.message ||
